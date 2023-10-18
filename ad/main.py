@@ -5,6 +5,8 @@ from random import randint as ri
 mouse_x, mouse_y = 0, 0
 mouse_button = 0
 
+score = 0
+
 makes = []
 comment_list = []  # 追加：コメント管理リスト
 
@@ -36,17 +38,19 @@ def make_comment():
 
     # 生成したコメントをキャンバスに描画後、コメント管理リストに追加
     # cvs.create_textの戻り値（キャンバスID）を生成したコメントのidに渡してます
-    comment.id = cvs.create_text(
-        comment.start_posx,
-        comment.start_posy,
-        text=comment.text,
-        fill=comment.color,
-        tag=comment.tag,
-        font=size,
-    )
-    comment_list.append(comment)
+    if cvs != None:
+        comment.id = cvs.create_text(
+            comment.start_posx,
+            comment.start_posy,
+            text=comment.text,
+            fill=comment.color,
+            tag=comment.tag,
+            font=size,
+        )
+        comment_list.append(comment)
     # 修正後ここまで
-    cvs.after(ri(800, 1000), make_comment)
+    if cvs != None:
+        cvs.after(ri(800, 1000), make_comment)
 
 
 # テキストブロック左から右に動く！
@@ -67,26 +71,45 @@ def left():
         if comment.color == "white":
             speed = 5
         elif comment.color == "red":
-            speed = 20
-        elif comment.color == "yellow":
             speed = 15
+        elif comment.color == "yellow":
+            speed = 12.5
         elif comment.color == "green":
             speed = 10
-        cvs.move(comment.id, speed, 0)
+        if cvs != None:
+            cvs.move(comment.id, speed, 0)
         # 画面外に行ったら削除される
         delete_comment()
     # 修正後ここまで
 
-    cvs.after(ri(-10, 25), left)
+    if cvs != None:
+        cvs.after(ri(-10, 25), left)
+
+
+def addscores(comment_color):
+    global score
+    if comment_color == "white":
+        score -= 10
+    elif comment_color == "red":
+        score += 500
+    elif comment_color == "yellow":
+        score += 200
+    elif comment_color == "green":
+        score += 100
+    if cvs != None:
+        cvs.delete("score")
+        cvs.create_text(50, 100, text=f"{score}", fill="pink", font="80px", tag="score")
 
 
 # マウスでの操作
 def mouse(e):
     global mouse_x, mouse_y
-    cvs.delete("SCREEN")
-    mouse_x = e.x
-    mouse_y = e.y
-    cvs.create_image(e.x, e.y, image=img, tag="SCREEN")
+    if cvs != None:
+        cvs.delete("SCREEN")
+        mouse_x = e.x
+        mouse_y = e.y
+        if cvs != None:
+            cvs.create_image(e.x, e.y, image=img, tag="SCREEN")
 
 
 # マウスクリック
@@ -111,37 +134,60 @@ def delete_comment(mouse=None):
         # mouseがNoneなら画面外判定、Noneでなければクリック判定
         if mouse != None:
             # テキストをクリックされたら
-            if pos[0] <= mouse.x <= pos[2] and pos[1] <= mouse.y <= pos[3]:
-                cvs.delete(comment.id)
-                comment_list.remove(comment)
-                print(comment.text)
-                break
-        else:
-            # 画面(右端)から出たら
-            if pos[0] >= 1300:
-                cvs.delete(comment.id)
-                comment_list.remove(comment)
-                print(comment.text)
-                break
+            if cvs != None:
+                if pos[0] <= mouse.x <= pos[2] and pos[1] <= mouse.y <= pos[3]:
+                    cvs.delete(comment.id)
+                    addscores(comment.color)
+                    print(score)
+                    comment_list.remove(comment)
+                    print(comment.text)
+                    break
+            else:
+                # 画面(右端)から出たら
+                if pos[0] >= 1300:
+                    cvs.delete(comment.id)
+                    comment_list.remove(comment)
+                    print(comment.text)
+                    break
+
+
+def delete_btn():
+    if cvs != None:
+        btn.destroy()
+        cvs.pack()
+
+
+def end():
+    global cvs, root, score
+    if cvs != None:
+        cvs.destroy()
+        cvs = None
+        lastscores = tk.Label(root, text="sasasasasasasasasasa", fg="black")
+        lastscores.pack()
 
 
 root = tk.Tk()
 root.geometry("1280x720")
 frame = tk.Frame(root)
 frame.pack()
-font_size = ("Arial", ri(25, 100))
 
+# ボタン作成
+btn = tk.Button(root, text="配信開始", command=delete_btn)
+
+
+# ボタン表示
+btn.place(anchor="center", x=1280 / 2, y=720 / 2, width=150, height=40)
 
 # キャンパス描画
 cvs = tk.Canvas(frame, width=1300, height=800, bg="black")
-cvs.pack()
+
 
 # 自機描画
 img = tk.PhotoImage(file="avoid/star.png").subsample(2)
 cvs.create_image(50, 50, image=img, tag="SCREEN")
 
-# テキストブロック描画
-cvs.create_text(50, 100, text="わあ", fill="white", tag=f"text1", font=font_size)
+# スコア表示
+cvs.create_text(50, 50, text=f"{score}", fill="pink", font="80px", tag="score")
 
 left()
 make_comment()
@@ -149,6 +195,8 @@ make_comment()
 
 root.bind("<Motion>", mouse)
 root.bind("<Button>", mouse_click)
+
+root.after(30000, end)
 
 
 root.mainloop()
